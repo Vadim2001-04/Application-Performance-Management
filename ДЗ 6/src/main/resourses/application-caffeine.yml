@@ -1,0 +1,8 @@
+server:
+  port: 8080
+
+spring:
+  cache:
+    type: caffeine
+    caffeine:
+      spec: "expireAfterWrite=600s, maximumSize=100"

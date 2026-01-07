@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Парсер вакансий — Сравнение REST и WebSocket</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .mode { margin: 10px 0; }
+        button { padding: 8px 16px; margin: 5px; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 4px; }
+        .log { height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 8px; }
+    </style>
+</head>
+<body>
+<h1>Парсер вакансий</h1>
+
+<div class="mode">
+    <h3>Режим: REST + Polling</h3>
+    <button onclick="startRest()">Запустить парсинг</button>
+    <div id="restLog" class="log"></div>
+    <pre id="restResult"></pre>
+</div>
+
+<div class="mode">
+    <h3>Режим: WebSocket</h3>
+    <button onclick="startWebSocket()">Запустить парсинг</button>
+    <div id="wsLog" class="log"></div>
+    <pre id="wsResult"></pre>
+</div>
+
+<script>
+    function log(elementId, message) {
+      const el = document.getElementById(elementId);
+      el.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // === REST + Polling ===
+    let restInterval = null;
+    async function startRest() {
+      document.getElementById('restResult').textContent = '';
+      document.getElementById('restLog').textContent = '';
+      log('restLog', 'Отправка запроса на запуск парсинга...');
+      await fetch('/api/start');
+      log('restLog', 'Парсинг запущен. Начинаю опрос каждые 500 мс...');
+
+      clearInterval(restInterval);
+      restInterval = setInterval(async () => {
+        log('restLog', 'Опрос /api/status...');
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.status === 'completed') {
+          clearInterval(restInterval);
+          log('restLog', 'Результат получен!');
+          document.getElementById('restResult').textContent = JSON.stringify(data.data, null, 2);
+        } else if (data.status === 'error') {
+          clearInterval(restInterval);
+          log('restLog', 'Ошибка: ' + data.message);
+        }
+      }, 500);
+    }
+
+    // === WebSocket ===
+    let ws = null;
+    function startWebSocket() {
+      document.getElementById('wsResult').textContent = '';
+      document.getElementById('wsLog').textContent = '';
+      log('wsLog', 'Создание WebSocket-соединения...');
+
+      if (ws) ws.close();
+      ws = new WebSocket('ws://localhost:8080/ws');
+
+      ws.onopen = () => {
+        log('wsLog', 'Соединение установлено. Отправка команды "start"');
+        ws.send('start');
+      };
+
+      ws.onmessage = (event) => {
+        log('wsLog', 'Получен результат');
+        const data = JSON.parse(event.data);
+        if (data.status === 'completed') {
+          document.getElementById('wsResult').textContent = JSON.stringify(data.data, null, 2);
+        } else {
+          log('wsLog', 'Ошибка: ' + data.message);
+        }
+        ws.close();
+      };
+
+      ws.onerror = (error) => {
+        log('wsLog', 'Ошибка WebSocket: ' + error);
+      };
+
+      ws.onclose = () => {
+        log('wsLog', 'Соединение закрыто');
+      };
+    }
+</script>
+</body>
+</html>
