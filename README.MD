@@ -5,7 +5,7 @@
 ## Технологический стек
 - Django 4.x
 - Django REST Framework
-- SQLite (можно заменить на PostgreSQL)
+- SQLite
 - JWT аутентификация
 
 ## Установка
